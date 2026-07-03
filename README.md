@@ -1,2 +1,2 @@
 # risset-loom
-Risset rythymym loom
+Risset rythymymym loom
