@@ -986,7 +986,7 @@ function loadParsed(parsed,name){
  if(!MIDI)savedP=state.P;
  PARSED=parsed;
  $('mstart').max=parsed.totalBars-1;$('mstart').value=0;
- $('mbars').max=Math.min(64,parsed.totalBars);
+ $('mbars').max=Math.min(1024,parsed.totalBars);
  $('mbars').value=Math.min(16,parsed.totalBars);
  state.bpm=Math.min(600,Math.max(40,parsed.bpm));$('bpm').value=state.bpm;
  $('P').disabled=true;
