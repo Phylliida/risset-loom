@@ -1070,8 +1070,8 @@ async function renderWAV(){
  const c=deriveCfg(state);
  const gm=guardCfg(c);if(gm){warn(gm);return;}
  const EVN=evCount(c);
- if(EVN>60000){warn('too dense to render ('+EVN.toLocaleString()+' events/loop)');return;}
- if(c.L>600){warn('loop is '+fmtS(c.L)+' s \u2014 render limit is 600 s');return;}
+ //if(EVN>60000){warn('too dense to render ('+EVN.toLocaleString()+' events/loop)');return;}
+ //if(c.L>600){warn('loop is '+fmtS(c.L)+' s \u2014 render limit is 600 s');return;}
  const noteD=(state.gliss>0.001)?' \u00b7 drone is live-only':'';
  const btn=$('wav');btn.disabled=true;
  try{
