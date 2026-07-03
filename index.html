@@ -503,8 +503,8 @@ let MIDI=null,PARSED=null,savedP=8;
 function evCount(c){return MIDI?Math.round(c.tot/c.P)*MIDI.evs.length:c.tot;}
 function guardCfg(c){
  const ec=evCount(c);
- if(ec>24000)return 'too dense: '+ec.toLocaleString()+' events per loop \u2014 lower layers, ratio, cycles'+(MIDI?' or bars':' or steps');
- if(c.f0*Math.pow(c.r,c.N)>50)return 'top layer would exceed 50 steps/s \u2014 lower tempo, layers or ratio';
+ //if(ec>24000)return 'too dense: '+ec.toLocaleString()+' events per loop \u2014 lower layers, ratio, cycles'+(MIDI?' or bars':' or steps');
+ //if(c.f0*Math.pow(c.r,c.N)>50)return 'top layer would exceed 50 steps/s \u2014 lower tempo, layers or ratio';
  return '';
 }
 function startPlay(){
