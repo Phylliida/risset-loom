@@ -1606,29 +1606,39 @@ $('musicbtn').onclick=()=>{
 /* ---------- vgmusic.com browser ---------- */
 /* vgmusic.com is a static archive with no CORS headers, so every request
    rides through a public cors proxy — the first that answers becomes sticky.
-   corsproxy.io only admits real browser origins (curl gets a 403), the rest
-   are plain relays with uneven uptime, hence the fallback chain. */
+   Public proxies are a moving target: corsproxy.io went api-key-only (401),
+   proxy.cors.sh shut down (dns is gone), codetabs sits behind a flaky
+   cloudflare (522s), allorigins fails most attempts with 520/522 after ~20s
+   but does come through on retries. So each round races every proxy in
+   parallel (first good answer wins), and rounds repeat before giving up. */
 const VG_HOME='https://www.vgmusic.com/';
 const VG_PROXIES=[
- u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
- u=>'https://proxy.cors.sh/'+u,
  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+ u=>'https://api.cors.lol/?url='+encodeURIComponent(u),
  u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
 ];
+const VG_TIMEOUT=20000,VG_ROUNDS=3;
 let vgProxy=0;
 async function vgFetch(url,asBuf){
  let err;
- for(let i=0;i<VG_PROXIES.length;i++){
-  const p=(vgProxy+i)%VG_PROXIES.length;
+ const attempt=async p=>{
+  const ctl=new AbortController(),tt=setTimeout(()=>ctl.abort(),VG_TIMEOUT);
   try{
-   const ctl=new AbortController(),tt=setTimeout(()=>ctl.abort(),45000);
    const r=await fetch(VG_PROXIES[p](url),{signal:ctl.signal});
-   clearTimeout(tt);
    if(!r.ok)throw new Error('http '+r.status);
    const v=await(asBuf?r.arrayBuffer():r.text());
    if(asBuf?v.byteLength<16:v.length<64)throw new Error('empty response');
+   return {p,v};
+  }finally{clearTimeout(tt);}
+ };
+ for(let round=0;round<VG_ROUNDS;round++){
+  const order=VG_PROXIES.map((_,i)=>(vgProxy+i)%VG_PROXIES.length);
+  try{
+   const {p,v}=await Promise.any(order.map(attempt));
    vgProxy=p;return v;
-  }catch(e){err=e;}
+  }catch(e){
+   err=(e&&e.errors&&e.errors[e.errors.length-1])||e;
+  }
  }
  throw new Error('all cors proxies failed ('+(err&&err.message)+') — try again shortly');
 }
