@@ -70,6 +70,23 @@ summary{color:var(--gold);cursor:pointer;letter-spacing:.4px}
 details p{margin:9px 0}
 code,details b{color:var(--gold);font-style:normal}
 details i{color:var(--ink)}
+#mroll{margin-top:8px;border-radius:8px}
+#scrubrow{display:flex;gap:10px;align-items:center;margin-top:6px}
+#scrubrow input{flex:1;margin:0}
+#mscrubt{color:var(--dim);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#vgpanel{margin-top:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 13px}
+#vgcrumb{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+#vgcrumb button{padding:4px 9px;font-size:11px;background:var(--panel2)}
+#vgcrumb .sep{color:var(--dim);font-size:11px}
+#vgfilter{width:100%;box-sizing:border-box;background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+ border-radius:8px;font:12px/1.4 ui-monospace,Menlo,monospace;padding:7px 9px;margin-bottom:8px}
+#vglist{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+#vglist button{text-align:left;padding:6px 9px;font-size:12px;background:var(--panel2);border-radius:6px;
+ display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+#vglist button span{overflow-wrap:anywhere}
+#vglist button small{color:var(--dim);white-space:nowrap}
+#vglist .vgrp{color:var(--gold);font-size:10px;letter-spacing:.6px;text-transform:uppercase;margin:7px 0 1px}
+#vglist .vmsg{color:var(--dim);font-size:12px;padding:6px 2px}
 @media (prefers-reduced-motion:reduce){.cell{transition:none}}
 </style>
 </head>
@@ -123,6 +140,7 @@ details i{color:var(--ink)}
 
 <div class="ctls" style="margin-top:14px">
  <div class="ctl"><label>gliss drone <b id="v_gliss"></b></label><input id="gliss" type="range" min="0" max="1" step="0.01"></div>
+ <div class="ctl"><label>crescendo <b id="v_swell"></b></label><input id="swell" type="range" min="0" max="1" step="0.01"></div>
  <div class="ctl"><label>barberpole filter <b id="v_barber"></b></label><input id="barber" type="range" min="0" max="1" step="0.01"></div>
  <div class="ctl"><label>orbit pan <b id="v_orbit"></b></label><input id="orbit" type="range" min="0" max="1" step="0.01"></div>
 </div>
@@ -136,6 +154,13 @@ details i{color:var(--ink)}
 <div class="row">
  <label class="filebtn" for="midifile">&#9836; import midi<input type="file" id="midifile"></label>
  <button id="mididemo">demo seq</button>
+ <button id="vgbtn">&#9689; vgmusic.com</button>
+ <button id="vgrand" style="display:none">&#10022; random</button>
+</div>
+<div id="vgpanel" style="display:none">
+ <div id="vgcrumb"></div>
+ <input id="vgfilter" placeholder="filter&hellip;">
+ <div id="vglist"></div>
 </div>
 <details style="margin-top:8px"><summary>picker won't open? paste midi as base64</summary>
  <textarea id="b64" rows="3" placeholder="paste base64 of a .mid file (data: URIs fine) &mdash; e.g. from `base64 -w0 song.mid`"></textarea>
@@ -146,17 +171,24 @@ details i{color:var(--ink)}
   <div class="ctl wide"><label><span id="midiname"></span> <b><button id="mideject" style="padding:3px 10px;font-size:11px">eject</button></b></label></div>
   <div class="ctl"><label>start bar <b id="v_mstart">1</b></label><input id="mstart" type="range" min="0" max="0" step="1" value="0"></div>
   <div class="ctl"><label>bars <b id="v_mbars">16</b></label><input id="mbars" type="range" min="1" max="16" step="1" value="16"></div>
+  <div class="ctl wide"><label>tuning translation <b id="v_conv">auto</b></label><div class="seg" id="convseg"></div></div>
+ </div>
+ <canvas id="mroll"></canvas>
+ <div id="scrubrow">
+  <input id="mscrub" type="range" min="0" max="1000" step="1" value="0">
+  <span id="mscrubt">0.0s / &ndash;</span>
  </div>
 </div>
 
 <details><summary>what is happening here</summary>
 <p>A <b>Risset rhythm</b> is the rhythmic Shepard tone: copies of one pattern stacked at tempo ratio <code>r</code>, all accelerating (or decelerating) exponentially. Each layer fades in at the slow edge of the window and out at the fast edge, so as one departs, another has already taken its place an octave of tempo below &mdash; the pulse tumbles forever and never arrives.</p>
 <p><b>Why every output is seamless:</b> the loop length is never a free knob here. It is derived as <code>L&nbsp;=&nbsp;m&middot;q&#7482;&middot;P&middot;ln&nbsp;r&nbsp;/&nbsp;(f&#8320;&middot;(r&minus;1))</code> (with an extra factor <code>r</code> for descent), which forces every layer to complete exactly <code>m&middot;q&#7482;&middot;P&middot;r&#7503;</code> beats per loop &mdash; an integer multiple of the pattern length &mdash; so each handoff lands on a pattern boundary at zero amplitude. Rational ratios (<code>3:2</code>, <code>4:3</code>) stay lawful because the <code>q&#7482;</code> fold makes those beat counts integers. There is no reachable setting that is not a Risset rhythm.</p>
-<p>Tap steps to cycle velocity &middot; tap a lane name to mute it &middot; <b>tap any gold value to type an exact number, including beyond slider range</b> (negative swing rushes the offbeats, negative canon descends, the ratio label takes any rational <code>p:q</code>) &middot; <b>&#9834;&nbsp;music</b> toggles a pure-rhythm profile &mdash; window focus at max, no pitch&ndash;tempo coupling, no canon, no swing, no orbit, 12-edo of the octave at root C &mdash; the Risset rhythm with none of the pitch machinery; tap again to restore exactly what you had &middot; <i>window</i> shapes each layer's fade and <i>focus</i> is a sharpening exponent on it &middot; <i>pitch&#8596;tempo</i> couples every hit's pitch to its layer's instantaneous tempo (the full Shepard treatment) &middot; <i>swing</i> is applied in beat-space, so it survives the exponential time-warp intact &middot; <i>wav</i> renders the steady-state loop in bounded chunks with pre-roll (voices are one-shots and the filter's memory is milliseconds, so the joins are sample-exact), which keeps long renders fast &mdash; up to 600&nbsp;s.</p>
+<p>Tap steps to cycle velocity &middot; tap a lane name to mute it &middot; <b>tap any gold value to type an exact number, including beyond slider range</b> (negative swing rushes the offbeats, negative canon descends, the ratio label takes any rational <code>p:q</code>) &middot; <b>&#9834;&nbsp;music</b> toggles a pure-rhythm profile &mdash; window focus at max, no pitch&ndash;tempo coupling, no canon, no swing, no orbit, 12-edo of the octave at root C &mdash; the Risset rhythm with none of the pitch machinery; tap again to restore exactly what you had &middot; <i>window</i> shapes each layer's fade and <i>focus</i> is a sharpening exponent on it &middot; <i>pitch&#8596;tempo</i> couples every hit's pitch to its layer's instantaneous tempo (the full Shepard treatment) &middot; <i>swing</i> is applied in beat-space, so it survives the exponential time-warp intact &middot; <i>wav</i> renders the steady-state loop in bounded chunks with pre-roll (voices are one-shots and the filter's memory is milliseconds, so the joins are sample-exact), with no length or density ceiling &mdash; every field takes any finite value you type; guards are advisory only, and the sole hard refusals are arithmetic ones (a config whose loop length overflows to infinity cannot be scheduled). Your device's memory is the only law left.</p>
 <p><b>Melody:</b> notes are <b>Shepard tones</b> &mdash; octave-stacked partials under a fixed spectral window over log-frequency &mdash; so they have chroma but no register, which is why the piano roll needs no octave axis. Steps hold <b>chords</b>: tap any set of degrees in a column. <i>Layer canon</i> transposes each layer by that many steps per log-tempo slot: any value is lawful, because pitch here is a function of <code>x</code> alone and everything that factors through <code>x</code> survives the handoff. At one full period per slot, pitch scales exactly with tempo, and the <i>gliss drone</i> becomes the true <b>Shepard&ndash;Risset glissando</b>, riding the same <code>x</code> as the rhythm layers.</p>
 <p><b>Tuning:</b> the entire Shepard machine is parameterized by one ratio &mdash; the <i>fold period</i> <code>&rho;</code>. Partials stack at <code>&rho;<sup>j</sup></code>, chroma lives on the circle <code>log&nbsp;f&nbsp;mod&nbsp;log&nbsp;&rho;</code>, and equivalence is <code>&rho;</code>-equivalence rather than octave-equivalence. <code>2:1</code> gives ordinary Shepard tones; <code>3:1</code> gives <b>tritave Shepard tones</b> &mdash; set edo to 13 for the Bohlen&ndash;Pierce chromatic; <code>3:2</code> and <code>&phi;</code> are stranger creatures with narrow, dense partial stacks. <i>edo</i> divides the period equally, and the scale menu is literal <b>MOS theory</b>: a chain of the tuning's best approximation to 3:2, which at 12-edo of the octave recovers the pentatonic (mos&nbsp;5) and diatonic (mos&nbsp;7) collections for free.</p>
-<p><b>Midi:</b> drop in any standard midi file and the loom risset-ifies it. Note onsets keep their <i>exact fractional</i> beat positions &mdash; the time-warp map <code>t(b)</code> accepts any real beat, so nothing is quantized to a grid. Channel-10 percussion routes to the drum voices; every other pitch is collapsed to its position on the fold circle, because register cannot survive an infinite accelerando &mdash; bass and lead merge into chroma, played as Shepard tones whose ring-out tracks each layer's local tempo, and <i>root</i> becomes a transpose knob. Under a non-octave tuning the 12-edo circle is mapped proportionally onto the chosen period, so a familiar tune at <code>3:1&nbsp;&middot;&nbsp;13</code> becomes its Bohlen&ndash;Pierce shadow. Selections are padded to whole beats, so the seam theorem holds verbatim; the original tempo changes are irrelevant &mdash; beats are ticks over division, and the loom re-times everything anyway.</p>
-<p><b>The whole family:</b> take any logarithmically perceived dimension, stack copies at ratio <code>r</code>, drift them exponentially, window in the log. The state space collapses to the circle <code>&#8477;/(&#8484;&middot;ln&nbsp;r)</code> and the illusion is uniform rotation on it. Pitch &rarr; Shepard tone. Tempo &rarr; Risset rhythm. Spectral position &rarr; the <i>barberpole filter</i> (an eternally rising formant). Angular rate &rarr; <i>orbit</i>, an ever-accelerating rotation around your head. Grain density, loudness, and the visual cousin &mdash; the infinite fractal zoom &mdash; are the same construction. One honest caveat: the drone is excluded from wav export. The discrete events are exactly loop-periodic, but a true glissando is only <i>ensemble</i>-periodic &mdash; oscillator phases precess by a non-integer cycle count per loop &mdash; so no finite wav of it can tile without a seam. The loom ships the exactly-periodic stem.</p>
+<p><b>Midi:</b> drop in any standard midi file and the loom risset-ifies it. Note onsets keep their <i>exact fractional</i> beat positions &mdash; the time-warp map <code>t(b)</code> accepts any real beat, so nothing is quantized to a grid. Channel-10 percussion routes to the drum voices; every other pitch is collapsed to its position on the fold circle, because register cannot survive an infinite accelerando &mdash; bass and lead merge into chroma, played as Shepard tones whose ring-out tracks each layer's local tempo, and <i>root</i> becomes a transpose knob. Under any other tuning the notes are <b>translated, not squeezed</b>: the loom detects the key (Krumhansl&ndash;Schmuckler) and re-derives every pitch by the chosen <i>tuning translation</i> &mdash; <b>direct</b> rounds each note to the nearest step; <b>fifths</b> respells it on the chain of fifths and sends fifth and octave to the tuning's own best <code>3/2</code> and <code>2/1</code> (the regular-temperament val, lawful even when the period is a tritave or &phi;); <b>just</b> reads each pitch class as a 5-limit ratio from the tonic; <b>auto</b> scores all three against the just intervals the key implies and keeps the winner. A tune at <code>3:1&nbsp;&middot;&nbsp;13</code> becomes an honest Bohlen&ndash;Pierce shadow &mdash; and because the octave is not the period there, register genuinely changes chroma. The <b>&#9689;&nbsp;vgmusic.com</b> browser drops any of that archive's midis straight in (flipping on <b>&#9834;&nbsp;music</b> so they arrive recognizable; toggle it off to re-enter the pitch machinery). Selections are padded to whole beats, so the seam theorem holds verbatim; the original tempo changes are irrelevant &mdash; beats are ticks over division, and the loom re-times everything anyway.</p>
+<p><b>The whole family:</b> take any logarithmically perceived dimension, stack copies at ratio <code>r</code>, drift them exponentially, window in the log. The state space collapses to the circle <code>&#8477;/(&#8484;&middot;ln&nbsp;r)</code> and the illusion is uniform rotation on it. Pitch &rarr; Shepard tone. Tempo &rarr; Risset rhythm. Spectral position &rarr; the <i>barberpole filter</i> (an eternally rising formant). Angular rate &rarr; <i>orbit</i>, an ever-accelerating rotation around your head. Loudness &rarr; <i>crescendo</i>: separable band-limited washes, each climbing 30&nbsp;dB across a ~16&nbsp;s life (an integer number of climbs per loop, so the seam theorem holds) before yielding to a fresh one entering below &mdash; attention always finds something rising. It ships in the wav, unlike the sine drone, because noise has no phase to precess: the sources are pinned to absolute time by buffer offset, so the joins stay sample-exact. Grain density and the visual cousin &mdash; the infinite fractal zoom &mdash; are the same construction. One honest caveat: the drone is excluded from wav export. The discrete events are exactly loop-periodic, but a true glissando is only <i>ensemble</i>-periodic &mdash; oscillator phases precess by a non-integer cycle count per loop &mdash; so no finite wav of it can tile without a seam. The loom ships the exactly-periodic stem.</p>
+<p><b>Sharing:</b> the url hash always carries the complete state of the loom &mdash; every knob, the pattern and melody grids, mutes, the ratio, tuning and translation, music mode, and any vgmusic pick with its bar selection. Copy the address bar and whoever opens it gets the exact weave.</p>
 </details>
 </main>
 
@@ -188,8 +220,7 @@ function beatsAt(c,k,tt){const z=tt/c.L*c.lnr;
 /*ENDMATH*/
 
 const state={bpm:126,ratio:0,N:4,m:1,P:8,dir:'accel',env:'hann',focus:1,couple:0.35,swing:0,vol:0.8,
- root:9,scale:0,canon:12,mvol:0.8,gliss:0,barber:0,orbit:0.25,edo:12,period:0};
-const NMAX=[6,5,4,4,4];
+ root:9,scale:0,canon:12,mvol:0.8,gliss:0,barber:0,orbit:0.25,edo:12,period:0,swell:0,conv:'auto'};
 function win(u){
  if(u<=0||u>=1)return 0;let w;
  if(state.env==='hann'){const s=Math.sin(Math.PI*u);w=s*s;}
@@ -216,8 +247,14 @@ const PERIODS=[
 ];
 const SCALEMODES=['mos 5','mos 7','mos 9','full'];
 const NOTES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const melSteps=new Uint32Array(16);
+const melSteps=Array.from({length:16},()=>new Set());
 let melMute=false;
+function ensurePatCap(P){
+ if(P<=LANES[0].steps.length&&P<=melSteps.length)return;
+ const n2=Math.max(P,LANES[0].steps.length*2);
+ for(const l of LANES){const a=new Uint8Array(n2);a.set(l.steps);l.steps=a;}
+ while(melSteps.length<n2)melSteps.push(new Set());
+}
 function bestGen(n,rho){
  const g=Math.round(n*Math.log(1.5)/Math.log(rho));
  return Math.max(1,Math.min(n-1,g));
@@ -231,6 +268,84 @@ function currentScale(){
  return Array.from(s).sort((a,b)=>a-b);
 }
 function centsPerStep(){return 1200*Math.log2(PERIODS[state.period].rho)/state.edo;}
+
+/* ---------- shareable urls: the hash carries the full weave ----------
+   Parsed BEFORE the controls bind, so sliders/segs pick the shared values up
+   naturally; written back (debounced replaceState) on every refresh plus a
+   slow catch-all for pattern taps and mutes that bypass refresh. */
+let HASHLOADED=false,HASH_MUSIC=false,HASH_MSV=null,HASH_MIDI=null,MIDISRC=null;
+(function(){
+ const h=location.hash.slice(1);if(!h)return;
+ try{
+  const q=new URLSearchParams(h);
+  const num=(k,fn,lo,hi,int)=>{if(!q.has(k))return;let v=parseFloat(q.get(k));
+   if(!isFinite(v))return;if(int)v=Math.round(v);
+   if(lo!=null)v=Math.max(lo,v);if(hi!=null)v=Math.min(hi,v);state[fn]=v;};
+  num('bpm','bpm',1e-4,null);num('N','N',0,64,1);num('m','m',1,null,1);num('P','P',1,512,1);
+  num('f','focus',0.01,null);num('c','couple');num('sw','swing');num('v','vol',0,1);
+  num('rt','root',0,null,1);num('sc','scale',0,3,1);num('cn','canon');num('mv','mvol',0,1);
+  num('g','gliss',0,1);num('b','barber',0,1);num('o','orbit',0,1);num('e','edo',1,240,1);
+  num('pd','period',0,PERIODS.length-1,1);num('sl','swell',0,1);
+  if(q.get('dir')==='d')state.dir='decel';
+  if(['hann','gauss','tri'].includes(q.get('env')))state.env=q.get('env');
+  if(['auto','direct','fifths','just'].includes(q.get('cv')))state.conv=q.get('cv');
+  if(q.has('r')){const s=q.get('r');
+   let m2=s.match(/^(\d+)[:\/](\d+)$/),p=null,q2=null;
+   if(m2){p=+m2[1];q2=+m2[2];}else if(/^\d+$/.test(s)){p=+s;q2=1;}
+   if(p&&q2&&p>q2){const g=gcd(p,q2);p/=g;q2/=g;
+    const ex=RATIOS.findIndex(R=>R.p===p&&R.q===q2);
+    if(ex>=0)state.ratio=ex;
+    else{RATIOS.push({l:q2===1?String(p):p+':'+q2,p,q:q2});state.ratio=RATIOS.length-1;}}}
+  ensurePatCap(state.P);
+  if(q.has('ln')){const parts=q.get('ln').split('.');
+   LANES.forEach((l,i)=>{l.steps.fill(0);const s2=parts[i]||'';
+    for(let j=0;j<Math.min(s2.length,l.steps.length);j++){const v=+s2[j];if(v>=1&&v<=3)l.steps[j]=v;}});}
+  if(q.has('ml')){const parts=q.get('ml').split('.');
+   melSteps.forEach(st=>st.clear());
+   parts.forEach((s2,i)=>{if(i>=melSteps.length)return;const m2=parseInt(s2,36)||0;
+    for(let d=0;d<30;d++)if(m2&(1<<d))melSteps[i].add(d);});}
+  if(q.has('mut')){const m2=parseInt(q.get('mut'),36)||0;
+   LANES.forEach((l,i)=>{l.mute=!!(m2&(1<<i));});melMute=!!(m2&32);}
+  HASH_MUSIC=q.get('music')==='1';
+  if(q.has('msv'))HASH_MSV=q.get('msv').split(',').map(parseFloat);
+  if(q.has('u'))HASH_MIDI={url:q.get('u'),name:q.get('n')||'shared midi',
+   sb:q.has('sb')?Math.max(0,Math.round(+q.get('sb'))||0):null,
+   nb:q.has('nb')?Math.max(1,Math.round(+q.get('nb'))||1):null,
+   bpm:q.has('bpm')?state.bpm:null};
+  HASHLOADED=true;
+ }catch(e){}
+})();
+function hashState(){
+ const q=new URLSearchParams();
+ q.set('bpm',state.bpm);q.set('r',RATIOS[state.ratio].l);
+ q.set('N',state.N);q.set('m',state.m);q.set('P',state.P);
+ q.set('dir',state.dir==='accel'?'a':'d');q.set('env',state.env);
+ q.set('f',state.focus);q.set('c',state.couple);q.set('sw',state.swing);
+ q.set('v',state.vol);q.set('rt',state.root);q.set('sc',state.scale);
+ q.set('cn',state.canon);q.set('mv',state.mvol);q.set('g',state.gliss);
+ q.set('b',state.barber);q.set('o',state.orbit);q.set('e',state.edo);
+ q.set('pd',state.period);q.set('sl',state.swell);q.set('cv',state.conv);
+ q.set('ln',LANES.map(l=>{let s='';for(let i=0;i<state.P;i++)s+=(l.steps[i]||0);return s;}).join('.'));
+ let ml='';
+ for(let i=0;i<state.P;i++){let m2=0;
+  if(melSteps[i])for(const d of melSteps[i])if(d<30)m2|=1<<d;
+  ml+=(i?'.':'')+m2.toString(36);}
+ q.set('ml',ml);
+ let mut=0;LANES.forEach((l,i)=>{if(l.mute)mut|=1<<i;});if(melMute)mut|=32;
+ if(mut)q.set('mut',mut.toString(36));
+ if(musicSaved){q.set('music','1');q.set('msv',MUSIC_KEYS.map(k=>musicSaved[k]).join(','));}
+ if(MIDISRC){q.set('u',MIDISRC.url);q.set('n',MIDISRC.name);
+  q.set('sb',$('mstart').value);q.set('nb',$('mbars').value);}
+ return q.toString();
+}
+let hashT=null,lastHash='';
+function queueHash(){
+ if(hashT)return;
+ hashT=setTimeout(()=>{hashT=null;
+  const h=hashState();
+  if(h!==lastHash){lastHash=h;try{history.replaceState(null,'','#'+h);}catch(e){}}},250);
+}
+setInterval(queueHash,1500);
 
 /* ---------- audio ---------- */
 let AC=null,comp=null,master=null,bus=null;
@@ -378,10 +493,10 @@ function fireOnset(ctx,base,c,t,tl,k,stepIdx,live){
     clearTimeout(cell._t);cell._t=setTimeout(()=>cell.classList.remove('hit'),110);},d);
   }
  }
- const mask=melSteps[stepIdx];
- if(mask&&!melMute&&state.mvol>0.001){
+ const mset=melSteps[stepIdx];
+ if(mset&&mset.size&&!melMute&&state.mvol>0.001){
   const sc=currentScale(),degs=[];
-  for(let d=0;d<sc.length&&degs.length<10;d++)if(mask&(1<<d))degs.push(d);
+  for(const d of mset)if(d<sc.length)degs.push(d);
   if(degs.length){
    const g=0.85*w*state.mvol/Math.sqrt(degs.length);
    const cs=chromaSteps(c,x);
@@ -414,7 +529,8 @@ function fireMidi(ctx,base,c,t,tl,k,ev,live){
   const f=c.f0*Math.pow(c.r,x);
   const dur=Math.min(1.4,Math.max(0.12,0.85*ev.durB/f));
   const g=0.8*w*state.mvol*(0.35+0.65*ev.vel);
-  shepPluck(ctx,base,t,g,chromaSteps(c,x)+ev.c12/12*state.edo,pf,pan,dur);
+  const cs=(MIDICONV&&ev.p!=null&&MIDICONV[ev.p]!=null)?MIDICONV[ev.p]:ev.c12/12*state.edo;
+  shepPluck(ctx,base,t,g,chromaSteps(c,x)+cs,pf,pan,dur);
   if(live)visQ.push({t,x,step:ev.b,c:MELC,g});
  }
  if(live&&visQ.length>600)visQ.splice(0,200);
@@ -481,6 +597,47 @@ function killDrones(){
  try{droneGain.disconnect();}catch(e){}
  drones=null;droneGain=null;
 }
+const SWELLF=[250,700,1900,5200];
+let swellUnits=null,swellGain=null,swellT0=0,swellM=1;
+function swellEnv(u){
+ const rise=Math.pow(10,30*(u-1)/20);
+ const a=Math.min(1,u/0.08),fadeIn=a*a*(3-2*a);
+ let fadeOut=1;
+ if(u>0.9){const b=(u-0.9)/0.1;fadeOut=1-b*b*(3-2*b);}
+ return rise*fadeIn*fadeOut;
+}
+function mkSwell(ctx,out,tNoiseAbs){
+ const t0=ctx.currentTime||0,units=[];
+ for(let k=0;k<SWELLF.length;k++){
+  const src=ctx.createBufferSource();src.buffer=noiseBuf(ctx);src.loop=true;
+  const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=SWELLF[k];bp.Q.value=1.1;
+  const g=ctx.createGain();g.gain.setValueAtTime(0,t0);
+  src.connect(bp);bp.connect(g);g.connect(out);
+  src.start(t0,frac(tNoiseAbs));
+  units.push({k,src,bp,g});
+ }
+ return units;
+}
+function swellStep(units,c,tB,t0,M){
+ const Ns=units.length;
+ const base=((tB-t0)/c.L)*(c.dir==='accel'?1:-1)*M;
+ for(const u of units)
+  u.g.gain.linearRampToValueAtTime(swellEnv(frac((u.k+base)/Ns)),tB);
+}
+function swellMFor(c){return Math.max(1,Math.round(SWELLF.length*c.L/16));}
+function ensureSwell(){
+ if(!playing||swellUnits||state.swell<=0.001)return;
+ swellGain=AC.createGain();swellGain.gain.value=state.swell*0.4;swellGain.connect(bus);
+ swellT0=loopStart;
+ swellM=swellMFor(cfg);
+ swellUnits=mkSwell(AC,swellGain,AC.currentTime);
+}
+function killSwell(){
+ if(!swellUnits)return;
+ for(const u of swellUnits){try{u.src.stop();}catch(e){}try{u.g.disconnect();}catch(e){}}
+ try{swellGain.disconnect();}catch(e){}
+ swellUnits=null;swellGain=null;
+}
 function mkBarber(ctx,inNode,outNode){
  const fs=[];let prev=inNode;
  for(let i=0;i<3;i++){const f=ctx.createBiquadFilter();f.type='peaking';f.Q.value=1.4;
@@ -502,28 +659,36 @@ let playing=false,timer=null,loopStart=0,cfg=null,nk=null;
 let MIDI=null,PARSED=null,savedP=8;
 function evCount(c){return MIDI?Math.round(c.tot/c.P)*MIDI.evs.length:c.tot;}
 function guardCfg(c){
- const ec=evCount(c);
- //if(ec>24000)return 'too dense: '+ec.toLocaleString()+' events per loop \u2014 lower layers, ratio, cycles'+(MIDI?' or bars':' or steps');
- //if(c.f0*Math.pow(c.r,c.N)>50)return 'top layer would exceed 50 steps/s \u2014 lower tempo, layers or ratio';
- return '';
+ if(!isFinite(c.L)||!isFinite(c.tot)||c.L<=0)
+  return {fatal:'configuration overflows to non-finite values \u2014 pull something back',note:''};
+ const msgs=[],ec=evCount(c);
+ if(ec>24000)msgs.push(ec.toLocaleString()+' events/loop \u2014 heavy');
+ const top=c.f0*Math.pow(c.r,c.N);
+ if(top>50)msgs.push('top layer '+top.toFixed(0)+' steps/s');
+ return {fatal:'',note:msgs.join(' \u00b7 ')};
 }
 function startPlay(){
  ensureAC();AC.resume();
  const c=deriveCfg(state);
- const gm=guardCfg(c);if(gm){warn(gm);return;}
- warn('');cfg=c;
+ const g=guardCfg(c);
+ if(g.fatal){warn(g.fatal);return;}
+ warn(g.note);cfg=c;
  bus=AC.createGain();
  barberFs=mkBarber(AC,bus,comp);
  nk={};for(const k of c.ks)nk[k]=0;
- loopStart=AC.currentTime+0.1;
- contT=loopStart;
+ const tl0=scrubPhase>0.001?scrubPhase*c.L:0;   // weave starts at the scrubbed loop phase
+ loopStart=AC.currentTime+0.1-tl0;
+ contT=AC.currentTime+0.1;
+ if(tl0)ffwdLayers(c,tl0);
  ensureDrones();
+ ensureSwell();
  playing=true;$('play').innerHTML='&#9632; still';
  timer=setInterval(pump,40);pump();
 }
 function stopPlay(){
  if(timer)clearInterval(timer);timer=null;playing=false;$('play').innerHTML='&#9654; weave';
  killDrones();
+ killSwell();
  if(bus){const b=bus;b.gain.setTargetAtTime(0,AC.currentTime,0.02);
   setTimeout(()=>{try{b.disconnect();}catch(e){}},350);bus=null;}
  if(barberFs){const f=barberFs;
@@ -570,6 +735,7 @@ function pump(){
  if(contT<hz){
   if(barberFs)barberStep(barberFs,cfg,hz,loopStart);
   if(drones)droneStep(drones,cfg,contT,hz);
+  if(swellUnits)swellStep(swellUnits,cfg,hz,swellT0,swellM);
   contT=hz;
  }
 }
@@ -587,6 +753,7 @@ function fit(){
  sv.style.height=SH+'px';sv.width=Math.round(SW*dpr);sv.height=Math.round(SH*dpr);
  sx.setTransform(dpr,0,0,dpr,0,0);
  cx.fillStyle='#0d0b07';cx.fillRect(0,0,CW,CH);
+ prerenderRoll();
 }
 window.addEventListener('resize',fit);
 function rad(u,inner,outer){return outer-(outer-inner)*u;}
@@ -631,6 +798,7 @@ function draw(){
  cx.beginPath();cx.arc(0,0,2.5,0,2*Math.PI);cx.fillStyle='rgba(255,179,71,0.7)';cx.fill();
  cx.restore();
  drawStrip(c,tt);
+ drawRoll(c,tt);
 }
 function drawStrip(c,tt){
  sx.fillStyle='#0d0b07';sx.fillRect(0,0,SW,SH);
@@ -649,6 +817,115 @@ function drawStrip(c,tt){
  const t2='fast';sx.fillText(t2,SW-pad-sx.measureText(t2).width,SH-2);
  sx.fillText(c.dir==='accel'?'\u2192':'\u2190',SW/2-3,SH-2);
 }
+
+/* ---------- midi pattern roll + loop scrub ----------
+   x = beat position in the selection, y = chroma on the fold circle
+   (converted steps filled, the 12-tet position hollow). A risset loop has no
+   single playhead: every layer reads the pattern at its own phase and speed,
+   so the roll draws one line per layer, brightness = that layer's window. */
+let RW=0,RH=0,rollOff=null,scrubPhase=0,scrubbingR=false,seekTimerR=null,lastSL='';
+function prerenderRoll(){
+ rollOff=null;
+ const el=$('mroll');
+ if(!MIDI||!el.clientWidth)return;
+ const dpr=Math.min(2,window.devicePixelRatio||1);
+ RW=el.clientWidth;RH=170;
+ el.style.height=RH+'px';el.width=Math.round(RW*dpr);el.height=Math.round(RH*dpr);
+ rollOff=document.createElement('canvas');
+ rollOff.width=el.width;rollOff.height=el.height;
+ const c=rollOff.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);
+ c.fillStyle='#0d0b07';c.fillRect(0,0,RW,RH);
+ const pad=6,dBot=MIDI.evs.some(e=>e.drum!=null)?14:2,H=RH-dBot,edo=state.edo;
+ const X=b=>pad+b/MIDI.P*(RW-2*pad);
+ const Y=cc=>H-pad-(cc/edo)*(H-2*pad);
+ for(let b=0;b<=MIDI.P;b++){const x=X(b);
+  c.strokeStyle=b%4===0?'rgba(243,231,201,0.14)':'rgba(243,231,201,0.05)';
+  c.beginPath();c.moveTo(x,pad);c.lineTo(x,H-pad);c.stroke();}
+ if(edo<=24){c.strokeStyle='rgba(255,179,71,0.07)';
+  for(let s=0;s<=edo;s++){const y=Y(s);c.beginPath();c.moveTo(pad,y);c.lineTo(RW-pad,y);c.stroke();}}
+ const bh=Math.max(2.5,Math.min(8,(H-2*pad)/edo*.7));
+ for(const ev of MIDI.evs){
+  const x=X(ev.b);
+  if(ev.drum!=null){
+   c.fillStyle=hexA(LANES[ev.drum].c,.5+.4*ev.vel);
+   c.fillRect(x,RH-11,1.8,9);continue;
+  }
+  const w=Math.max(2,ev.durB/MIDI.P*(RW-2*pad));
+  const cs=(MIDICONV&&ev.p!=null&&MIDICONV[ev.p]!=null)?MIDICONV[ev.p]:ev.c12/12*edo;
+  const cc=((cs%edo)+edo)%edo,co=(((ev.c12/12*edo)%edo)+edo)%edo;
+  const yo=Y(co);
+  c.strokeStyle='rgba(243,231,201,0.35)';
+  c.strokeRect(x+.5,yo-bh/2+.5,w-1,bh-1);
+  const y=Y(cc);
+  c.fillStyle='hsl('+(cc/edo*360).toFixed(0)+' 70% 62%/'+(0.45+0.5*ev.vel).toFixed(2)+')';
+  c.fillRect(x,y-bh/2,w,bh);
+ }
+}
+function drawRoll(c,tt){
+ if(!MIDI){rollOff=null;return;}
+ const el=$('mroll');
+ if(!rollOff||el.clientWidth!==RW)prerenderRoll();
+ if(!rollOff)return;
+ const g=el.getContext('2d'),dpr=Math.min(2,window.devicePixelRatio||1);
+ g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,el.width,el.height);
+ g.drawImage(rollOff,0,0);
+ g.setTransform(dpr,0,0,dpr,0,0);
+ if(playing)scrubPhase=frac(tt/c.L);
+ const tl=scrubPhase*c.L;
+ for(const k of c.ks){
+  const x=xOf(c,k,tl),w=win(x/c.N);
+  if(w<=0.004)continue;
+  const ph=((beatsAt(c,k,tl)%c.P)+c.P)%c.P;
+  const px=6+ph/c.P*(RW-12);
+  g.strokeStyle='rgba(255,209,102,'+(0.15+0.75*w).toFixed(3)+')';
+  g.lineWidth=1+1.6*w;
+  g.beginPath();g.moveTo(px,2);g.lineTo(px,RH-2);g.stroke();
+ }
+ g.lineWidth=1;
+ if(!scrubbingR)$('mscrub').value=Math.round(scrubPhase*1000);
+ const sl=tl.toFixed(1)+'s / '+c.L.toFixed(1)+'s';
+ if(sl!==lastSL){lastSL=sl;$('mscrubt').textContent=sl;}
+}
+/* seeking: onsets are fire-and-forget one-shots, so re-anchor loopStart and
+   fast-forward each layer's event cursor to the new phase; the ~0.19s already
+   committed to the horizon simply plays out \u2014 inaudible inside the texture */
+function ffwdLayers(c,tl){
+ for(const k of c.ks){
+  let i=0;
+  if(MIDI){
+   const Nn=MIDI.evs.length,total=Math.round(c.counts[k]/c.P)*Nn;
+   while(i<total){
+    const ev=MIDI.evs[i%Nn],b=Math.floor(i/Nn)*c.P+ev.b;
+    if(beatTime(c,k,b)>=tl)break;i++;
+   }
+  }else{
+   while(i<c.counts[k]){
+    const s=i%c.P,b=i+((s&1)?state.swing:0);
+    if(beatTime(c,k,b)>=tl)break;i++;
+   }
+  }
+  nk[k]=i;
+ }
+}
+function seekLoop(f){
+ scrubPhase=Math.min(0.999,Math.max(0,f));
+ if(!playing)return;
+ const now=AC.currentTime,tl=scrubPhase*cfg.L;
+ loopStart=now+0.05-tl;
+ contT=now+0.05;
+ ffwdLayers(cfg,tl);
+ if(drones){killDrones();ensureDrones();}
+ if(swellUnits){killSwell();ensureSwell();}
+ pump();
+}
+function requestLoopSeek(f){
+ scrubPhase=Math.min(0.999,Math.max(0,f));
+ if(!playing||seekTimerR)return;
+ seekTimerR=setTimeout(()=>{seekTimerR=null;seekLoop(scrubPhase);},120);
+}
+$('mscrub').addEventListener('input',()=>requestLoopSeek((+$('mscrub').value||0)/1000));
+$('mscrub').addEventListener('pointerdown',()=>{scrubbingR=true;});
+window.addEventListener('pointerup',()=>{scrubbingR=false;});
 
 /* ---------- step grid ---------- */
 function buildGrid(){
@@ -681,7 +958,7 @@ function paintMelCol(s){
  const sc=currentScale();
  for(let d=0;d<sc.length;d++){
   const cell=melCells[d]&&melCells[d][s];if(!cell)continue;
-  cell.style.background=(melSteps[s]&(1<<d))?hexA(MELC,0.9):'rgba(255,255,255,0.03)';
+  cell.style.background=melSteps[s].has(d)?hexA(MELC,0.9):'rgba(255,255,255,0.03)';
  }
 }
 function melLabel(off){
@@ -700,7 +977,7 @@ function buildMelGrid(){
   cells.style.gridTemplateColumns='repeat('+state.P+',1fr)';
   for(let s=0;s<state.P;s++){
    const b=document.createElement('button');b.className='cell'+(s%4===0?' q':'');
-   b.onclick=()=>{melSteps[s]^=(1<<d);paintMelCol(s);};
+   b.onclick=()=>{const st=melSteps[s];if(st.has(d))st.delete(d);else st.add(d);paintMelCol(s);};
    cells.appendChild(b);melCells[d][s]=b;
   }
   row.appendChild(lb);row.appendChild(cells);g.appendChild(row);
@@ -708,8 +985,8 @@ function buildMelGrid(){
  for(let s=0;s<state.P;s++)paintMelCol(s);
 }
 function clampMelBits(){
- const m=(1<<currentScale().length)-1;
- for(let s=0;s<16;s++)melSteps[s]&=m;
+ const len=currentScale().length;
+ for(const st of melSteps)for(const d of Array.from(st))if(d>=len)st.delete(d);
 }
 
 /* ---------- controls ---------- */
@@ -731,6 +1008,7 @@ function refresh(){
  $('v_edo').textContent=state.edo+' \u00b7 '+centsPerStep().toFixed(1)+'\u00a2/step';
  $('v_period').textContent=PERIODS[state.period].l;
  $('v_gliss').textContent=Math.round(state.gliss*100)+'%';
+ $('v_swell').textContent=Math.round(state.swell*100)+'%';
  $('v_mvol').textContent=Math.round(state.mvol*100)+'%';
  $('v_barber').textContent=Math.round(state.barber*100)+'%';
  $('v_orbit').textContent=Math.round(state.orbit*100)+'%';
@@ -738,7 +1016,8 @@ function refresh(){
  const lo=Math.round(state.bpm*Math.pow(c.r,-c.N/2)),hi=Math.round(state.bpm*Math.pow(c.r,c.N/2));
  const extra=c.q>1?' \u00b7 q\u1d3a folds cycles \u2192 '+c.mEff:'';
  $('readout').textContent='loop '+fmtS(c.L)+' s \u00b7 each layer sweeps '+lo+' \u2194 '+hi+' spm \u00b7 '+evCount(c).toLocaleString()+' events/loop'+extra;
- warn(guardCfg(c));
+ const g=guardCfg(c);warn(g.fatal||g.note);
+ queueHash();
 }
 function bindStruct(id,key){const el=$(id);el.value=state[key];
  el.addEventListener('input',()=>{state[key]=+el.value;if(key==='P'){buildGrid();buildMelGrid();}refresh();});
@@ -759,14 +1038,19 @@ function applyGliss(){
  else{ensureDrones();
   if(droneGain)droneGain.gain.setTargetAtTime(state.gliss*0.45,AC.currentTime,0.05);}}
 bindLive('gliss','gliss',applyGliss);
+function applySwell(){
+ if(!playing)return;
+ if(state.swell<=0.001){killSwell();}
+ else{ensureSwell();
+  if(swellGain)swellGain.gain.setTargetAtTime(state.swell*0.4,AC.currentTime,0.05);}}
+bindLive('swell','swell',applySwell);
 $('melmute').onclick=()=>{melMute=!melMute;$('melmute').classList.toggle('muted',melMute);};
 function tuningChanged(){
  const n=state.edo;
- $('root').max=n-1;
- if(state.root>n-1){state.root=n-1;$('root').value=state.root;}
+ $('root').max=Math.max(1,n-1);
  $('canon').max=n;
- if(state.canon>n){state.canon=n;$('canon').value=state.canon;}
  clampMelBits();buildMelGrid();refresh();
+ rebuildConv();
  if(playing&&drones){killDrones();ensureDrones();}
 }
 bindLive('edo','edo',tuningChanged);
@@ -783,15 +1067,12 @@ PERIODS.forEach((Pd,i)=>{const b=document.createElement('button');b.textContent=
   tuningChanged();};
  $('pseg').appendChild(b);});
 
-function nmaxFor(i){return i<NMAX.length?NMAX[i]:4;}
 function gcd(a,b){while(b){const t=a%b;a=b;b=t;}return a;}
 function buildRatioSeg(){
  const seg=$('rseg');seg.innerHTML='';
  RATIOS.forEach((R,i)=>{const b=document.createElement('button');b.textContent=R.l;
   if(i===state.ratio)b.classList.add('on');
-  b.onclick=()=>{state.ratio=i;const mx=nmaxFor(i);$('N').max=mx;
-   if(state.N>mx){state.N=mx;$('N').value=mx;}
-   buildRatioSeg();refresh();restart();};
+  b.onclick=()=>{state.ratio=i;buildRatioSeg();refresh();restart();};
   seg.appendChild(b);});
  const add=document.createElement('button');add.textContent='p:q\u2026';
  add.onclick=editRatio;
@@ -813,14 +1094,12 @@ function editRatio(){
    if(m2){p=+m2[1];q=+m2[2];}
    else if(/^\d+$/.test(s)){p=+s;q=1;}
    if(p&&q){const g=gcd(p,q);p/=g;q/=g;}
-   if(!p||!q||p<=q||p>64||q>8){warn('ratio must be rational p:q with p>q, p\u226464, q\u22648');refresh();return;}
+   if(!p||!q||p<=q){warn('ratio must be rational p:q with p>q');refresh();return;}
    const exist=RATIOS.findIndex(R=>R.p===p&&R.q===q);
    if(exist>=0)state.ratio=exist;
    else{const cust={l:q===1?String(p):p+':'+q,p,q};
     if(RATIOS.length>5)RATIOS[5]=cust;else RATIOS.push(cust);
     state.ratio=5;}
-   const mx=nmaxFor(state.ratio);$('N').max=mx;
-   if(state.N>mx){state.N=mx;$('N').value=mx;}
    buildRatioSeg();warn('');refresh();restart();
   }else refresh();
  };
@@ -846,8 +1125,8 @@ window.addEventListener('keydown',e=>{
 function setPat(P,pats,mel){state.P=P;$('P').value=P;
  LANES.forEach((l,i)=>{l.steps.fill(0);const a=pats[i]||[];
   for(let s=0;s<Math.min(16,a.length);s++)l.steps[s]=a[s];});
- melSteps.fill(0);
- if(mel)for(let s=0;s<Math.min(16,mel.length);s++)melSteps[s]=mel[s]?(1<<(mel[s]-1)):0;
+ melSteps.forEach(st=>st.clear());
+ if(mel)for(let s=0;s<Math.min(16,mel.length);s++)if(mel[s])melSteps[s].add(mel[s]-1);
  buildGrid();buildMelGrid();restart();}
 const PRESETS={
  tumble:[8,[[3,0,0,0,2,0,0,0],[0,0,0,0,3,0,0,0],[2,0,2,2,0,2,2,0],[1,1,2,1,1,1,2,1],[0,0,0,3,0,0,0,0]],
@@ -861,7 +1140,7 @@ const PRESETS={
 };
 document.querySelectorAll('[data-p]').forEach(b=>{
  b.onclick=()=>{const p=PRESETS[b.dataset.p];setPat(p[0],p[1],p[2]);};});
-$('clear').onclick=()=>{LANES.forEach(l=>l.steps.fill(0));melSteps.fill(0);buildGrid();buildMelGrid();};
+$('clear').onclick=()=>{LANES.forEach(l=>l.steps.fill(0));melSteps.forEach(st=>st.clear());buildGrid();buildMelGrid();};
 $('rand').onclick=()=>{
  const D={kick:0.22,snare:0.14,block:0.42,hat:0.6,blip:0.16};
  LANES.forEach(l=>{const d=D[l.synth];l.steps.fill(0);
@@ -869,12 +1148,95 @@ $('rand').onclick=()=>{
    l.steps[s]=(Math.random()<0.35?3:(Math.random()<0.6?2:1));});
  LANES[0].steps[0]=Math.max(LANES[0].steps[0],3);
  const len=currentScale().length;
- melSteps.fill(0);
- for(let s=0;s<state.P;s++)if(Math.random()<0.35){
-  melSteps[s]=1<<Math.floor(Math.random()*len);
-  if(Math.random()<0.3)melSteps[s]|=1<<Math.floor(Math.random()*len);
+ melSteps.forEach(st=>st.clear());
+ for(let s=0;s<Math.min(state.P,melSteps.length);s++)if(Math.random()<0.35){
+  melSteps[s].add(Math.floor(Math.random()*len));
+  if(Math.random()<0.3)melSteps[s].add(Math.floor(Math.random()*len));
  }
  buildGrid();buildMelGrid();};
+
+/* ---------- 12-tet interpretation: key detection + tuning translation ----------
+   The comma-lens machinery, generalized to any fold period rho: a midi note is
+   not squeezed proportionally onto the circle but TRANSLATED — the val sends
+   fifth→best 3/2 and octave→best 2/1 of the CURRENT tuning, so tonal grammar
+   survives even inside a tritave or phi period (and since octave ≠ period
+   there, register honestly changes chroma). */
+const KS_MAJ=[6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+const KS_MIN=[6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+const KEYNAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function kcorr(a,b){
+ let ma=0,mb=0;for(let i=0;i<12;i++){ma+=a[i];mb+=b[i];}ma/=12;mb/=12;
+ let n=0,da=0,db=0;
+ for(let i=0;i<12;i++){const x=a[i]-ma,y=b[i]-mb;n+=x*y;da+=x*x;db+=y*y;}
+ return da&&db?n/Math.sqrt(da*db):0;
+}
+function detectKey(notes){
+ if(!notes||!notes.length)return null;
+ const h=new Array(12).fill(0);
+ for(const n of notes)h[n.pitch%12]+=n.dur*(0.3+0.7*n.vel/127);
+ let best=null;
+ for(let t=0;t<12;t++)for(const minor of [false,true]){
+  const prof=minor?KS_MIN:KS_MAJ,rot=new Array(12);
+  for(let i=0;i<12;i++)rot[i]=prof[((i-t)%12+12)%12];
+  const r=kcorr(h,rot);
+  if(!best||r>best.conf)best={tonic:t,minor,conf:r};
+ }
+ best.name=KEYNAMES[best.tonic]+(best.minor?' minor':' major');
+ let tf=(best.tonic*7)%12;if(tf>6)tf-=12;
+ best.center=tf+(best.minor?0.5:1.5);
+ best.tonicMidi=60+((best.tonic+5)%12)-5;
+ return best;
+}
+function spellPC(pc,center){let f=(pc*7)%12;f+=12*Math.round((center-f)/12);return f;}
+const JI12=[[1,1],[16,15],[9,8],[6,5],[5,4],[4,3],[45,32],[3,2],[8,5],[5,3],[9,5],[15,8]];
+let KEY=null,WNOTES=null,MIDICONV=null;
+const stepsOf=r=>state.edo*Math.log(r)/Math.log(PERIODS[state.period].rho);
+function convSteps12(midi,mode){
+ const rel=midi-60;
+ if(mode==='direct'||!KEY)return Math.round(rel/12*stepsOf(2));
+ const F=Math.round(stepsOf(1.5)),O=Math.round(stepsOf(2));
+ if(mode==='fifths'){
+  const pc=((rel%12)+12)%12,f=spellPC(pc,KEY.center),o=(rel-7*f)/12;
+  return f*F+o*O;
+ }
+ const d=midi-KEY.tonicMidi,o=Math.floor(d/12),pc=d-12*o;
+ return Math.round((KEY.tonicMidi-60)/12*stepsOf(2))+o*O+Math.round(stepsOf(JI12[pc][0]/JI12[pc][1]));
+}
+function convError(mode){
+ const cps=1200*Math.log2(PERIODS[state.period].rho)/state.edo;
+ const t0=convSteps12(KEY.tonicMidi,mode);
+ let s=0,w=0;
+ for(const n of WNOTES){
+  const d=n.midi-KEY.tonicMidi,o=Math.floor(d/12),pc=d-12*o;
+  const ideal=o*1200+1200*Math.log2(JI12[pc][0]/JI12[pc][1]);
+  s+=Math.abs((convSteps12(n.midi,mode)-t0)*cps-ideal)*n.w;w+=n.w;
+ }
+ return w?s/w:0;
+}
+function rebuildConv(){
+ if(!PARSED){MIDICONV=null;$('v_conv').textContent=state.conv;return;}
+ let mode=state.conv;
+ if(mode==='auto'){
+  if(!KEY||KEY.conf<0.5)mode='direct';
+  else{
+   const e={fifths:convError('fifths'),just:convError('just'),direct:convError('direct')};
+   mode='fifths';let b=e.fifths-1.5;
+   if(e.just<b){mode='just';b=e.just;}
+   if(e.direct<b)mode='direct';
+  }
+ }
+ MIDICONV={};
+ for(const n of PARSED.notes)if(MIDICONV[n.pitch]==null)MIDICONV[n.pitch]=convSteps12(n.pitch,mode);
+ $('v_conv').textContent=(state.conv==='auto'?'auto → ':'')+mode;
+ prerenderRoll();
+}
+['auto','direct','fifths','just'].forEach(m=>{
+ const b=document.createElement('button');b.textContent=m;
+ if(m===state.conv)b.classList.add('on');
+ b.onclick=()=>{state.conv=m;
+  Array.from($('convseg').children).forEach(x=>x.classList.toggle('on',x.textContent===m));
+  rebuildConv();};
+ $('convseg').appendChild(b);});
 
 /* ---------- midi import ---------- */
 /*MIDIPARSE*/
@@ -954,7 +1316,7 @@ function buildSeq(parsed,startBar,nBars){
  for(const n of parsed.notes){
   const b=tb(n.tick)-q0;
   if(b<-1e-6||b>=span-1e-6)continue;
-  evs.push({b:Math.max(0,b),drum:null,c12:n.pitch%12,vel:n.vel/127,
+  evs.push({b:Math.max(0,b),drum:null,p:n.pitch,c12:n.pitch%12,vel:n.vel/127,
    durB:Math.max(0.05,Math.min(tb(n.dur),span-b))});
  }
  for(const n of parsed.drums){
@@ -969,13 +1331,15 @@ function buildSeq(parsed,startBar,nBars){
 /*ENDMIDIPARSE*/
 function midiSummary(sb,nb){
  return PARSED.name+' \u00b7 bars '+(sb+1)+'\u2013'+(sb+nb)+' of '+PARSED.totalBars+
-  ' \u00b7 '+MIDI.evs.length+' events \u00b7 '+MIDI.P+' beats';
+  ' \u00b7 '+MIDI.evs.length+' events \u00b7 '+MIDI.P+' beats'+
+  (KEY?' \u00b7 '+KEY.name+' r='+KEY.conf.toFixed(2):'');
 }
 function applySel(){
- const sb=Math.max(0,Math.min(+$('mstart').value,PARSED.totalBars-1));
- const nb=Math.max(1,Math.min(+$('mbars').value,PARSED.totalBars-sb));
+ const sb=Math.max(0,+$('mstart').value||0);
+ const nb=Math.max(1,+$('mbars').value||1);
  MIDI=buildSeq(PARSED,sb,nb);
  state.P=MIDI.P;
+ rebuildConv();
  $('v_mstart').textContent=sb+1;$('v_mbars').textContent=nb;
  $('midiname').textContent=midiSummary(sb,nb);
  refresh();restart();
@@ -985,10 +1349,12 @@ function loadParsed(parsed,name){
  parsed.totalBars=Math.max(1,Math.ceil(parsed.maxTick/parsed.tpq/parsed.beatsPerBar-1e-6));
  if(!MIDI)savedP=state.P;
  PARSED=parsed;
+ KEY=detectKey(parsed.notes);
+ WNOTES=parsed.notes.map(n=>({midi:n.pitch,w:n.dur*(0.3+0.7*n.vel/127)}));
  $('mstart').max=parsed.totalBars-1;$('mstart').value=0;
- $('mbars').max=Math.min(1024,parsed.totalBars);
+ $('mbars').max=Math.max(1,parsed.totalBars);
  $('mbars').value=Math.min(16,parsed.totalBars);
- state.bpm=Math.min(600,Math.max(40,parsed.bpm));$('bpm').value=state.bpm;
+ state.bpm=parsed.bpm;$('bpm').value=state.bpm;
  $('P').disabled=true;
  document.body.classList.add('midimode');
  $('midibanner').style.display='';
@@ -996,7 +1362,8 @@ function loadParsed(parsed,name){
 }
 function ejectMIDI(){
  if(!PARSED)return;
- MIDI=null;PARSED=null;
+ MIDI=null;PARSED=null;KEY=null;WNOTES=null;MIDICONV=null;
+ MIDISRC=null;scrubPhase=0;rollOff=null;
  state.P=savedP;$('P').value=Math.min(16,savedP);$('P').disabled=false;
  document.body.classList.remove('midimode');
  $('midibanner').style.display='none';
@@ -1013,6 +1380,7 @@ $('midifile').addEventListener('change',async e=>{
  const f=e.target.files&&e.target.files[0];if(!f)return;
  try{
   const buf=await readFileBuf(f);
+  MIDISRC=null;                      // local files have no shareable url
   loadParsed(parseMIDI(buf),(f.name||'midi').replace(/(\.(mid|midi|smf|kar))+$/i,''));
   warn('');
  }catch(err){warn('midi import failed: '+err.message);}
@@ -1024,6 +1392,7 @@ $('b64load').onclick=()=>{
   if(!s)throw new Error('paste base64 first');
   const bin=atob(s),u=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  MIDISRC=null;
   loadParsed(parseMIDI(u.buffer),'pasted midi');
   $('b64').value='';warn('');
  }catch(err){warn('base64 import failed: '+err.message);}
@@ -1049,7 +1418,7 @@ function demoParsed(){
  }
  return {tpq:4,usq:454545,notes,drums,maxTick:64,bpm:132,beatsPerBar:4};
 }
-$('mididemo').onclick=()=>{loadParsed(demoParsed(),'little demo');warn('');};
+$('mididemo').onclick=()=>{MIDISRC=null;loadParsed(demoParsed(),'little demo');warn('');};
 
 /* ---------- wav render ---------- */
 function clamp16(x){x=Math.max(-1,Math.min(1,x));return Math.round(x*32767);}
@@ -1068,10 +1437,8 @@ function barberInit(fs,c,tAbs){
 }
 async function renderWAV(){
  const c=deriveCfg(state);
- const gm=guardCfg(c);if(gm){warn(gm);return;}
- const EVN=evCount(c);
- //if(EVN>60000){warn('too dense to render ('+EVN.toLocaleString()+' events/loop)');return;}
- //if(c.L>600){warn('loop is '+fmtS(c.L)+' s \u2014 render limit is 600 s');return;}
+ const g=guardCfg(c);
+ if(g.fatal){warn(g.fatal);return;}
  const noteD=(state.gliss>0.001)?' \u00b7 drone is live-only':'';
  const btn=$('wav');btn.disabled=true;
  try{
@@ -1109,6 +1476,15 @@ async function renderWAV(){
     for(let ta=Math.ceil((A-PRE)/0.04)*0.04;ta<=B+1e-9;ta+=0.04)
      barberStep(fs,c,ta-(A-PRE),-(A-PRE));
    }else base.connect(off.destination);
+   if(state.swell>0.001){
+    const sg=off.createGain();sg.gain.value=state.swell*0.4;sg.connect(base);
+    const su=mkSwell(off,sg,A-PRE);
+    const M=swellMFor(c);
+    for(const u of su)
+     u.g.gain.setValueAtTime(swellEnv(frac((u.k+((A-PRE)/c.L)*(c.dir==='accel'?1:-1)*M)/SWELLF.length)),0);
+    for(let ta=Math.ceil((A-PRE)/0.04)*0.04;ta<=B+1e-9;ta+=0.04)
+     swellStep(su,c,ta-(A-PRE),-(A-PRE),M);
+   }
    for(let j=lowerBound(A-PRE);j<events.length;j++){
     const e=events[j];if(e.t>=B)break;
     const ct=e.t-A+PRE;
@@ -1151,21 +1527,22 @@ $('wav').onclick=renderWAV;
 
 /* ---------- manual value entry (tap a gold value to type) ---------- */
 const MANUAL={
- bpm:{struct:1,int:1,min:1,max:20000},
- N:{struct:1,int:1,min:1,max:12},
- m:{struct:1,int:1,min:1,max:512},
- P:{struct:1,int:1,min:1,max:128,fn:()=>{buildGrid();buildMelGrid();},skip:()=>!!MIDI},
- focus:{min:0.05,max:12},
- couple:{min:-4,max:4},
- swing:{min:-0.95,max:0.95},
- vol:{min:0,max:2,fn:()=>{if(master&&AC)master.gain.setTargetAtTime(state.vol,AC.currentTime,0.03);}},
- root:{int:1,min:0,max:999,fn:()=>buildMelGrid()},
- canon:{min:-999,max:999},
- mvol:{min:0,max:2},
- gliss:{min:0,max:1.5,fn:applyGliss},
- barber:{min:0,max:2},
- orbit:{min:0,max:1},
- edo:{int:1,min:1,max:31,fn:tuningChanged},
+ bpm:{struct:1,min:1e-4},
+ N:{struct:1,int:1,min:0},
+ m:{struct:1,int:1,min:1},
+ P:{struct:1,int:1,min:1,fn:()=>{ensurePatCap(state.P);buildGrid();buildMelGrid();},skip:()=>!!MIDI},
+ focus:{min:0.01},
+ couple:{},
+ swing:{},
+ vol:{fn:()=>{if(master&&AC)master.gain.setTargetAtTime(state.vol,AC.currentTime,0.03);}},
+ root:{int:1,fn:()=>buildMelGrid()},
+ canon:{},
+ mvol:{},
+ gliss:{min:0,fn:applyGliss},
+ swell:{min:0,fn:applySwell},
+ barber:{},
+ orbit:{},
+ edo:{int:1,min:1,fn:tuningChanged},
 };
 function beginEdit(key){
  const spec=MANUAL[key];
@@ -1182,7 +1559,8 @@ function beginEdit(key){
   let v=parseFloat(inp.value);
   if(ok&&isFinite(v)){
    if(spec.int)v=Math.round(v);
-   v=Math.max(spec.min,Math.min(spec.max,v));
+   if(spec.min!=null)v=Math.max(spec.min,v);
+   if(spec.max!=null)v=Math.min(spec.max,v);
    state[key]=v;
    const sl=$(key);if(sl)sl.value=v;
    if(spec.fn)spec.fn();
@@ -1225,15 +1603,209 @@ $('musicbtn').onclick=()=>{
  }
 };
 
+/* ---------- vgmusic.com browser ---------- */
+/* vgmusic.com is a static archive with no CORS headers, so every request
+   rides through a public cors proxy — the first that answers becomes sticky.
+   corsproxy.io only admits real browser origins (curl gets a 403), the rest
+   are plain relays with uneven uptime, hence the fallback chain. */
+const VG_HOME='https://www.vgmusic.com/';
+const VG_PROXIES=[
+ u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+ u=>'https://proxy.cors.sh/'+u,
+ u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+ u=>'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
+];
+let vgProxy=0;
+async function vgFetch(url,asBuf){
+ let err;
+ for(let i=0;i<VG_PROXIES.length;i++){
+  const p=(vgProxy+i)%VG_PROXIES.length;
+  try{
+   const ctl=new AbortController(),tt=setTimeout(()=>ctl.abort(),45000);
+   const r=await fetch(VG_PROXIES[p](url),{signal:ctl.signal});
+   clearTimeout(tt);
+   if(!r.ok)throw new Error('http '+r.status);
+   const v=await(asBuf?r.arrayBuffer():r.text());
+   if(asBuf?v.byteLength<16:v.length<64)throw new Error('empty response');
+   vgProxy=p;return v;
+  }catch(e){err=e;}
+ }
+ throw new Error('all cors proxies failed ('+(err&&err.message)+') — try again shortly');
+}
+function vgParseSystems(html){
+ const doc=new DOMParser().parseFromString(html,'text/html');
+ const out=[],seen=new Set();
+ for(const a of doc.querySelectorAll('a[href]')){
+  const m=(a.getAttribute('href')||'').match(/^(?:https?:\/\/(?:www\.)?vgmusic\.com)?\/?(music\/[a-z0-9_\-\/.]+\/)$/i);
+  if(!m)continue;
+  const path=m[1].toLowerCase(),segs=path.split('/').filter(Boolean);
+  if(segs.length<4||seen.has(path))continue;
+  seen.add(path);
+  const g=segs[1]==='console'?segs[2]:segs[1];
+  out.push({grp:g.length<=3?g.toUpperCase():g[0].toUpperCase()+g.slice(1),
+   name:(a.textContent||'').replace(/\s+/g,' ').trim()||segs[segs.length-1],path});
+ }
+ return out;
+}
+function vgParseSongs(html,baseUrl){
+ const doc=new DOMParser().parseFromString(html,'text/html');
+ const games=[];let cur=null;
+ for(const tr of doc.querySelectorAll('tr')){
+  const hd=tr.querySelector('td.header');
+  if(hd){const t=hd.textContent.replace(/\s+/g,' ').trim();
+   if(t){cur={game:t,songs:[]};games.push(cur);}continue;}
+  for(const a of tr.querySelectorAll('a[href]')){
+   const h=a.getAttribute('href')||'';
+   if(!/\.mid$/i.test(h))continue;
+   if(!cur){cur={game:'(unsorted)',songs:[]};games.push(cur);}
+   try{cur.songs.push({title:(a.textContent||'').replace(/\s+/g,' ').trim()||h,
+    url:new URL(h,baseUrl).href});}catch(e){}
+  }
+ }
+ return games.filter(g=>g.songs.length);
+}
+const VG_FALLBACK=[
+ ['Nintendo','NES','music/console/nintendo/nes/'],
+ ['Nintendo','SNES','music/console/nintendo/snes/'],
+ ['Nintendo','Nintendo 64','music/console/nintendo/n64/'],
+ ['Nintendo','Game Boy','music/console/nintendo/gameboy/'],
+ ['Nintendo','GBA','music/console/nintendo/gba/'],
+ ['Sega','Genesis','music/console/sega/genesis/'],
+ ['Sony','PlayStation','music/console/sony/ps1/'],
+].map(x=>({grp:x[0],name:x[1],path:x[2]}));
+const vgPages=new Map();
+let vgSystems=null,vgSys=null,vgGames=null,vgGame=null,vgBusy=false;
+function vgMsg(m){const l=$('vglist');l.innerHTML='';
+ const d=document.createElement('div');d.className='vmsg';d.textContent=m;l.appendChild(d);}
+function vgCrumbs(){
+ const c=$('vgcrumb');c.innerHTML='';
+ const mk=(label,fn)=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;c.appendChild(b);};
+ const sep=()=>{const s=document.createElement('span');s.className='sep';s.textContent='›';c.appendChild(s);};
+ mk('vgmusic.com',()=>{vgSys=null;vgGames=null;vgGame=null;$('vgfilter').value='';vgRender();});
+ if(vgSys){sep();mk(vgSys.name,()=>{vgGame=null;$('vgfilter').value='';vgRender();});}
+ if(vgGame){sep();mk(vgGame.game.slice(0,48),()=>{});}
+}
+function vgRender(){
+ vgCrumbs();
+ $('vgrand').style.display=vgGames?'':'none';
+ const list=$('vglist'),q=$('vgfilter').value.trim().toLowerCase();
+ list.innerHTML='';
+ const frag=document.createDocumentFragment();
+ const add=(label,count,fn)=>{const b=document.createElement('button');
+  const s1=document.createElement('span');s1.textContent=label;b.appendChild(s1);
+  if(count){const s2=document.createElement('small');s2.textContent=count;b.appendChild(s2);}
+  b.onclick=fn;frag.appendChild(b);};
+ if(!vgSys){
+  if(!vgSystems){vgLoadSystems();return;}
+  let grp=null;
+  for(const s of vgSystems){
+   if(q&&!(s.grp+' '+s.name).toLowerCase().includes(q))continue;
+   if(s.grp!==grp){grp=s.grp;
+    const d=document.createElement('div');d.className='vgrp';d.textContent=grp;frag.appendChild(d);}
+   add(s.name,'',()=>vgOpenSys(s));
+  }
+ }else if(!vgGame){
+  if(!vgGames)return;
+  for(const g of vgGames){
+   if(q&&!g.game.toLowerCase().includes(q))continue;
+   add(g.game,g.songs.length,()=>{vgGame=g;$('vgfilter').value='';vgRender();});
+  }
+ }else{
+  for(const s of vgGame.songs){
+   if(q&&!s.title.toLowerCase().includes(q))continue;
+   add(s.title,'',()=>vgLoadSong(s,vgGame.game));
+  }
+ }
+ list.appendChild(frag);
+ if(!list.children.length)vgMsg('nothing matches');
+}
+async function vgLoadSystems(){
+ if(vgBusy)return;vgBusy=true;
+ vgMsg('fetching system list…');
+ try{vgSystems=vgParseSystems(await vgFetch(VG_HOME,false));}catch(e){vgSystems=null;}
+ if(!vgSystems||vgSystems.length<5)vgSystems=VG_FALLBACK;
+ vgBusy=false;vgRender();
+}
+async function vgOpenSys(s){
+ if(vgBusy)return;
+ vgSys=s;vgGame=null;vgGames=vgPages.get(s.path)||null;$('vgfilter').value='';
+ if(vgGames){vgRender();return;}
+ vgBusy=true;vgCrumbs();
+ vgMsg('fetching '+s.name+' index… (the big ones are a few MB)');
+ try{
+  const url=VG_HOME+s.path;
+  const games=vgParseSongs(await vgFetch(url,false),url);
+  if(!games.length)throw new Error('no midis found on that page');
+  vgPages.set(s.path,games);vgGames=games;
+ }catch(e){vgSys=null;vgBusy=false;vgCrumbs();vgMsg('failed: '+e.message);return;}
+ vgBusy=false;vgRender();
+}
+async function vgLoadSong(s,game){
+ if(vgBusy)return;vgBusy=true;
+ warn('downloading '+s.title+'…');
+ try{
+  const buf=await vgFetch(s.url,true);
+  const nm=(game&&game!=='(unsorted)'?game+' — ':'')+s.title;
+  MIDISRC={url:s.url,name:nm};
+  loadParsed(parseMIDI(buf),nm);
+  /* vgmusic tracks arrive as MUSIC first: flip on the pure-rhythm listening
+     profile so they play recognizably (octave 12-edo, no canon/coupling) —
+     the user can toggle it off to re-enter the pitch machinery */
+  if(!musicSaved)$('musicbtn').click();
+  warn('');
+ }catch(e){warn('vgmusic: '+e.message);}
+ vgBusy=false;
+}
+$('vgbtn').onclick=()=>{
+ const p=$('vgpanel'),show=p.style.display==='none';
+ p.style.display=show?'':'none';
+ $('vgbtn').classList.toggle('on',show);
+ if(show)vgRender();else $('vgrand').style.display='none';
+};
+$('vgrand').onclick=()=>{
+ if(!vgGames)return;
+ if(vgGame){const s=vgGame.songs[Math.floor(Math.random()*vgGame.songs.length)];
+  vgLoadSong(s,vgGame.game);return;}
+ const pool=vgGames.flatMap(g=>g.songs.map(x=>({s:x,g:g.game})));
+ if(!pool.length)return;
+ const pick=pool[Math.floor(Math.random()*pool.length)];
+ vgLoadSong(pick.s,pick.g);
+};
+$('vgfilter').addEventListener('input',vgRender);
+
 /* ---------- init ---------- */
 (function init(){
- const p=PRESETS.tumble;
- state.P=p[0];$('P').value=p[0];
- LANES.forEach((l,i)=>{l.steps.fill(0);
-  (p[1][i]||[]).forEach((v,s)=>{if(s<16)l.steps[s]=v;});});
- (p[2]||[]).forEach((v,s)=>{if(s<16)melSteps[s]=v?(1<<(v-1)):0;});
+ if(!HASHLOADED){
+  const p=PRESETS.tumble;
+  state.P=p[0];$('P').value=p[0];
+  LANES.forEach((l,i)=>{l.steps.fill(0);
+   (p[1][i]||[]).forEach((v,s)=>{if(s<16)l.steps[s]=v;});});
+  (p[2]||[]).forEach((v,s)=>{if(s<16&&v)melSteps[s].add(v-1);});
+ }
+ if(state.dir==='decel'){$('dirD').classList.add('on');$('dirA').classList.remove('on');}
+ if(melMute)$('melmute').classList.add('muted');
+ if(HASH_MUSIC){
+  musicSaved={};
+  MUSIC_KEYS.forEach((k,i)=>{musicSaved[k]=(HASH_MSV&&isFinite(HASH_MSV[i]))?HASH_MSV[i]:MUSIC_VALS[k];});
+  $('musicbtn').classList.add('on');
+ }
  buildGrid();buildMelGrid();refresh();fit();
  requestAnimationFrame(draw);
+ if(HASH_MIDI&&/^https:\/\/(www\.)?vgmusic\.com\//i.test(HASH_MIDI.url))(async()=>{
+  warn('fetching shared midi…');
+  try{
+   const buf=await vgFetch(HASH_MIDI.url,true);
+   const wantBpm=HASH_MIDI.bpm;
+   MIDISRC={url:HASH_MIDI.url,name:HASH_MIDI.name};
+   loadParsed(parseMIDI(buf),HASH_MIDI.name);
+   // loadParsed resets the selection + bpm to the file's own; restore the shared ones
+   if(HASH_MIDI.sb!=null)$('mstart').value=Math.min(+$('mstart').max,HASH_MIDI.sb);
+   if(HASH_MIDI.nb!=null)$('mbars').value=Math.min(+$('mbars').max,HASH_MIDI.nb);
+   if(HASH_MIDI.sb!=null||HASH_MIDI.nb!=null)applySel();
+   if(wantBpm!=null){state.bpm=wantBpm;$('bpm').value=wantBpm;refresh();}
+   warn('');
+  }catch(e){warn('shared midi failed: '+e.message);}
+ })();
 })();
 </script>
 </body>
